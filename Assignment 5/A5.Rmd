@@ -1,0 +1,118 @@
+---
+title: "A5"
+author: "Ali Rafieepouralavialavijeh"
+date: "4/20/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)    # For knitting document and include_graphics function
+library(gridExtra) # For including grids of plots
+library(psych)
+library(ggiraph)
+library(ggiraphExtra)
+library(ggcorrplot)
+library(car)
+library(caret)
+
+```
+
+
+## Problem statement and data used
+
+```{r}
+data.white <- read.table("winequality-white.csv", sep = ";", header = T)
+data.white<-mutate(data.white, color='white')
+
+data.red<-read.table("winequality-red.csv", sep = ";", header = T)
+data.red<-mutate(data.red, color='red')
+
+data.merged <- rbind(data.white, data.red)
+
+data.merged$color <- as.factor(data.merged$color)
+summary(data.merged)
+
+str(data.merged)
+```
+
+
+
+```{r}
+ggplot(data.merged, aes(y=color, x=density, alpha=pH)) + geom_jitter(width=0.1, height=0.25)
+ggplot(data.merged, aes(y=color, x=density, alpha=residual.sugar)) + geom_jitter(width=0.1, height=0.25)
+
+
+par(mfrow=c(1,5), oma = c(1,1,0,0) + 0.1,  mar = c(3,5,1,1) + 0.1)
+boxplot(data.red$fixed.acidity, col="slategray2", pch=19)
+mtext("Fixed Acidity", cex=0.8, side=1, line=2)
+boxplot(data.red$volatile.acidity, col="slategray2", pch=19)
+mtext("Volatile Acidity", cex=0.8, side=1, line=2)
+boxplot(data.red$citric.acid, col="slategray2", pch=19)
+mtext("Citric Acid", cex=0.8, side=1, line=2)
+boxplot(data.red$residual.sugar, col="slategray2", pch=19)
+mtext("Residual Sugar", cex=0.8, side=1, line=2)
+boxplot(data.red$chlorides, col="slategray2", pch=19)
+mtext("Chlorides", cex=0.8, side=1, line=2)
+
+par(mfrow=c(1,5), oma = c(1,1,0,0) + 0.1,  mar = c(3,5,1,1) + 0.1)
+boxplot(data.white$fixed.acidity, col="slategray2", pch=19)
+mtext("Fixed Acidity", cex=0.8, side=1, line=2)
+boxplot(data.white$volatile.acidity, col="slategray2", pch=19)
+mtext("Volatile Acidity", cex=0.8, side=1, line=2)
+boxplot(data.white$citric.acid, col="slategray2", pch=19)
+mtext("Citric Acid", cex=0.8, side=1, line=2)
+boxplot(data.white$residual.sugar, col="slategray2", pch=19)
+mtext("Residual Sugar", cex=0.8, side=1, line=2)
+boxplot(data.white$chlorides, col="slategray2", pch=19)
+mtext("Chlorides", cex=0.8, side=1, line=2)
+
+
+ggplot(aes(x = quality, y = sulphates), data = data.merged) + 
+  geom_point(aes(color=color),alpha=1/4, position = 'jitter')+
+  ggtitle('Total SO2 and Quality Relationship')
+
+```
+
+
+
+```{r}
+model.1 <- glm(color ~ sulphates+alcohol+residual.sugar+chlorides+total.sulfur.dioxide+free.sulfur.dioxide+quality+fixed.acidity+volatile.acidity, data=data.merged, family=binomial())
+
+summary(model.1)
+
+durbinWatsonTest(model.1)
+
+```
+
+```{r}
+
+data.merged$densityLog = data.merged$density*log(data.merged$density)
+data.merged$residualsugarLog = data.merged$residual.sugar*log(data.merged$residual.sugar)
+data.merged$fixedacidityLog = data.merged$fixed.acidity*log(data.merged$fixed.acidity)
+data.merged$volatileacidityLog = data.merged$volatile.acidity*log(data.merged$volatile.acidity)
+data.merged$citricacidLog = data.merged$citric.acid*log(data.merged$citric.acid)
+data.merged$chloridesLog = data.merged$chlorides*log(data.merged$chlorides)
+
+model.2 <- glm(color ~ density+pH+residual.sugar+chlorides+citric.acid+fixed.acidity+volatile.acidity+densityLog+residualsugarLog+fixedacidityLog+volatileacidityLog+citricacidLog+chloridesLog, data=data.merged, family=binomial())
+summary(model.2)
+exp(confint(model.1))
+
+```
+
+
+
+
+```{R}
+vif(model.1)
+mean(vif(model.1))
+```
+
+
+```{r}
+set.seed(3456)
+trainIndex <- createDataPartition(data.merged$color, p = 0.70,
+                                  list = FALSE,
+                                  times = 1)
+
+```

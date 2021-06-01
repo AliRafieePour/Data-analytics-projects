@@ -1,0 +1,166 @@
+---
+title: "A4"
+author: "Ali Rafieepouralavialavijeh"
+date: "4/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(knitr)    # For knitting document and include_graphics function
+library(gridExtra) # For including grids of plots
+library(psych)
+library(ggiraph)
+library(ggiraphExtra)
+library(car)
+library(GGally) #for ggpairs
+library(lubridate)
+```
+
+## Problem statement
+Dear Manager! The dataset I am working on has 13580 observations and our 
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+data.set <- read.csv("melb_data.csv")
+summary(data.set)
+```
+
+```{r}
+data.filtered <- data.set %>%
+  select(Price, YearBuilt, Type, Rooms, Bathroom, Suburb, ) %>%
+  filter(YearBuilt>1196) %>%
+  na.exclude
+
+summary(data.filtered)
+
+data.filtered_visualization <- data.set %>%
+  select(Price, YearBuilt, Type, Rooms, Bathroom, Suburb, Longtitude, Lattitude) %>%
+  filter(YearBuilt>1196) %>%
+  na.exclude
+
+
+
+```
+make some visuals
+```{r}
+ggplot(data = data.filtered_visualization, mapping = aes(x = Lattitude, y = Longtitude)) +
+    geom_point(alpha = 0.08, aes(color = Rooms))
+
+ggplot(data = data.filtered_visualization, mapping = aes(x = Lattitude, y = Longtitude)) +
+    geom_point(alpha = 0.3, aes(color = Type))
+
+
+```
+
+
+factorizing the categorical variables
+```{r}
+data.filtered$Type <- as.numeric(factor(data.filtered$Type))
+data.filtered$Suburb <- as.numeric(factor(data.filtered$Suburb))
+```
+
+making Regression models
+
+```{R}
+model.plain<-lm(Price ~ YearBuilt+Rooms+Bathroom, data = data.filtered)
+model.with_type<-lm(Price ~ YearBuilt+Rooms+Bathroom+Type, data = data.filtered)
+model.with_suburb<-lm(Price ~ YearBuilt+Rooms+Bathroom+Suburb, data = data.filtered)
+model.with_both<-lm(Price ~ YearBuilt+Rooms+Bathroom+Suburb+Type+Suburb, data = data.filtered)
+
+summary(model.plain)
+summary(model.with_type)
+summary(model.with_suburb)
+
+durbinWatsonTest(model.plain)
+durbinWatsonTest(model.with_type)
+durbinWatsonTest(model.with_suburb)
+
+
+
+```
+
+```{r}
+plot(model.plain)
+plot(model.with_type)
+plot(model.with_suburb)
+
+```
+
+
+
+```{r}
+
+fitted<- model.plain$fitted
+res <- model.plain$residuals
+standardized.residuals <- rstandard(model.plain)
+
+
+possible.outliers <- subset(data.filtered, standardized.residuals < -1.96 | standardized.residuals > 1.96)
+
+possible.outliers
+
+```
+
+```{r}
+
+shapiro.test(sample(model.plain$residuals, 5000))
+
+```
+
+
+
+
+```{r}
+cooks <- cooks.distance(model.plain)
+plot(sort(cooks, decreasing=TRUE))
+
+cooks <- cooks.distance(model.with_type)
+plot(sort(cooks, decreasing=TRUE))
+
+cooks <- cooks.distance(model.with_suburb)
+plot(sort(cooks, decreasing=TRUE))
+
+```
+
+
+```{r}
+confint(model.with_both)
+summary(model.with_both)
+```
+
+
+```{r}
+
+anova(model.plain, model.with_type)
+anova(model.plain, model.with_suburb)
+anova(model.with_type, model.with_suburb)
+
+
+```
+
+
+```{r}
+ggplot(data = data.filtered_visualization, mapping = aes(x = Rooms, y = Bathroom)) +
+    geom_point(alpha = 0.08, aes(color = Type))
+
+ggplot(data = data.filtered_visualization, mapping = aes(x = Rooms, y = Type)) +
+    geom_point(alpha = 0.08, aes(color = Bathroom))
+
+ggplot(data = data.filtered_visualization, mapping = aes(x = Bathroom, y = Type)) +
+    geom_point(alpha = 0.08, aes(color = Rooms))
+
+ggplot(data = data.filtered_visualization, mapping = aes(x = Rooms, y = Suburb)) +
+    geom_point(alpha = 0.08, aes(color = Bathroom))
+
+ggplot(data = data.filtered_visualization, mapping = aes(x = Bathroom, y = Suburb)) +
+    geom_point(alpha = 0.08, aes(color = Rooms))
+```

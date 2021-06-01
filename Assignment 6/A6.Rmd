@@ -1,0 +1,95 @@
+---
+title: "Individual Assignment 6"
+author: "Ali Rafieepouralavialavijeh"
+date: "4/23/2021"
+output:
+  pdf_document: default
+  word_document: default
+geometry: top=1.5cm,bottom=1.5cm
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(forecast)
+library(fpp)
+library(knitr)
+library(dplyr)
+```
+
+
+```{R echo=FALSE, results="hide"}
+data <- read.csv("csv3.csv")
+##data <- subset(data, select=-c(month.year))
+summary(data)
+
+##data <- ts(data)
+```
+## Problem statement and data sued
+Dear manager, the Consumer Complaint Database is a collection of complaints about consumer financial products and services that are sent to companies for response. This database contains more than 2 million rows of data collected from 2011 to 2021. Each row corresponding to each single complaint, includes data about the request, type of the issue, date received and responded to, ID, etc. However, for this analysis the focus of the study would be on the complaints associated with the Bank of America which as a result consist 99,159 cases from 2011 to 2021. The research question is “**how many potential complaints would we get from consumers in 2022?**” In the figure below, it can be seen vertical lines showing the change of trend in the data. For the sake of this analysis and an appropriate forcast the highlighted data will be used in this analysis as it is near to contemporary time.
+```{r dist, echo=FALSE, out.width="55%", fig.align="center", fig.cap="Distribution of the monthly complaints"}
+ggplot(data, aes(y=complaints, x=month.year)) +
+  geom_point() +
+  labs(x="Consectutive months from 2011 untill 2021",
+         y="Number of complaints recived per month") + geom_vline(aes(xintercept=75), linetype="dashed", color="red") + geom_vline(aes(xintercept=13), linetype="dashed", color="blue") +geom_rect(data=data, aes(xmin=75, xmax=+Inf, ymin=-Inf, ymax=+Inf),
+              color=NA,
+              alpha=0.003,
+              inherit.aes = FALSE)
+
+```
+
+
+## Planning
+Based on the specifics of this data set, which is a collected data through the time we should now investigate the data to see if we need to make some changes. Given the fact that the last data point is associated with March 2021 and that is collected in the middle of the month it seems to be too out of scale in comparison to other data points. As such, I would remove that to make a more consistent data set. Since visual inspection of the data does not show exaggerated effect of seasonality over time, I would use additive auto-correlation to study this time-series. The seasonal plot shows some variations in the fluctuations. In addition, the randomness seem to be constant over some time.
+
+```{r echo=FALSE, results="hide"}
+data <- subset(data, select=-c(month.year))
+data_new <- slice(data, 75:n())
+```
+
+```{r decom, echo=FALSE,out.width="45%", fig.align="center", fig.cap="Decomposition plot of the time-series"}
+
+ts_data = ts(data_new, frequency = 12)
+decom = decompose(ts_data, "additive") # uses moving average width 12
+
+pl1 <- plot(decom)
+```
+
+## Analysis
+Using ARIMA, I can now develop a forecasting model to predict the number of the complaints in 2022. ARIMA like any other forecasting model has a number of assumptions.
+1) No unusual observation is inspected in the range of data that is being studied
+2) There is no evidence of changing variance, so we will not do a Box-Cox transformation.
+3) The data are clearly non-stationary, as the series wanders up and down for long periods. Consequently, we will take a first difference of the data.
+4) The PACF, and ACF shown in Figure shows an ARMA(1,1)
+5) I will fit an ARIMA (1,1,1)
+6) The ACF plot of the residuals from the ARIMA(1,1,1) model shows that all autocorrelations are within the threshold limits, indicating that the residuals are behaving like white noise.
+```{r echo=FALSE, warning=FALSE, out.width="45%", fig.align="center", fig.cap="ACF and PACF plots after a 1 difference"}
+pl2 <- ggtsdisplay(diff(ts(data_new)), main="")
+```
+
+
+
+
+```{r echo=FALSE, results='hide'}
+
+(fit <- Arima(ts(data_new), order=c(3,1,0)))
+(fit <- Arima(ts(data_new), order=c(2,1,0)))
+(fit <- Arima(ts(data_new), order=c(1,1,0)))
+(fit <- Arima(ts(data_new), order=c(1,1,1)))
+
+```
+## Conclusion
+Figure below shows an estimate of the predictions for the coming months to come. As can be noticed from the figure there are two confidence intervals for the estimates of the next points in the future, the highlighted one is an 80% confidence interval and the other one is a 95% confidence interval. Please see the results of the forecast for 2022 in the appendix. It is obvious that fractional numbers should be converted to integer numbers for the number of complaints.
+
+```{r echo=FALSE, warning=FALSE, out.width="45%", fig.align="center", fig.cap="ARIMA(1,1,0) forecasting"}
+
+autoplot(forecast(fit))
+
+
+```
+## Appendix
+```{r echo=FALSE, fig.align='center'}
+forecastedValues <- forecast(fit, 21)
+forecastedValues
+```
+

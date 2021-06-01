@@ -1,0 +1,219 @@
+---
+title: "Assignment 2"
+author: " Ali Rafiee"
+date: "07/02/2021"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(knitr)
+library(ppcor)
+```
+
+## Identify Question
+Our priori question is that "Does expenditure on TB have correlation with mortality rate of TB cases?
+In order to find out the answer, we need four variables: Expenditure, Budget required, TB incidence, mortality of TB cases.So we need to combine three data sets: TB Budget, TB Expenditure and Utilization, and TB Burden.
+According to TB dictionary, definition of our variables are as follows:
+- budget_tot: Total budget required (US Dollars)
+- exp_tot: Total actual expenditure (US Dollars)
+- e_mort_100k: Estimated mortality of TB cases (all forms) per 100 000 population
+- e_inc_100k: Estimated incidence (all forms) per 100 000 population
+
+Let's read the data from data sets
+```{r data sets}
+TB_Budget <- read.csv("C:/Users/urafi/Downloads/TB_budget_2021-02-10.csv")
+TB_Expenditure <- read.csv("C:/Users/urafi/Downloads/TB_expenditure_utilisation_2021-02-10.csv")
+TB_Burden <- read.csv('C:/Users/urafi/Downloads/TB_burden_countries_2021-02-10.csv')
+TB_dictionary <- read.csv('C:/Users/urafi/Downloads/TB_data_dictionary_2021-03-12.csv')
+```
+
+Now we need to select required variables
+```{r}
+TB_Budget_s <- TB_Budget %>% 
+  select(country, year, budget_tot)
+TB_Expenditure_s <- TB_Expenditure %>% 
+  select(country, year, exp_tot)
+TB_Burden_s <- TB_Burden %>% 
+  select(country, year, e_mort_100k, e_inc_100k, e_inc_tbhiv_100k)
+```
+
+Let's take a look at our selected data sets
+```{r}
+summary(TB_Burden_s)
+summary(TB_Expenditure_s)
+summary(TB_Budget_s)
+```
+Taking a look at our data, we realize that they are generated for different years. So, we need to select data from common years which are 2018 and 2019
+```{r}
+TB_Burden_s <- TB_Burden_s %>% 
+  filter(year >= 2018)
+TB_Budget_s <- TB_Budget_s %>%
+  filter(year < 2020)
+TB_Expenditure_s <- TB_Expenditure_s %>% 
+  filter(year >= 2018)
+```
+
+Now we need to combine these data sets
+```{r}
+temp <- left_join(TB_Expenditure_s, TB_Budget_s)
+TB_df <- left_join(temp, TB_Burden_s)
+```
+In order to answer our question, we need to create two variables:
+1. exp_budget : this variable is calculated by expenditure divided by budget required. This KPI would tell us if a country's required budget is met or not. (Since budget alone cannot help. It may vary country to country depend on their populations, needs, funding and etc.)
+2. mort_inc_100k: this variable tells us the TB mortality rate (mortality / incident) in 100000 population
+
+Let's create those two variables
+```{r}
+TB_df <- TB_df %>% 
+  drop_na() %>% 
+  mutate(exp_budget = exp_tot / budget_tot,
+         mort_inc_100k = e_mort_100k / e_inc_100k,
+         hiv_inc_100k = e_inc_tbhiv_100k/ e_inc_100k)
+```
+## Creating Plots
+
+```{r}
+TB_df %>% 
+  ggplot(aes(exp_budget, mort_inc_100k)) +
+  geom_point() +
+  ylim(0, 0.5)
+```
+It seems we have an outlier. Let's find it:
+```{r include=FALSE}
+TB_df %>% 
+  arrange(desc(exp_budget))
+```
+"Vanuatu" country has value of 37.47 expenditure to budget rate which seems out of scale. So we delete this row.
+
+```{r}
+TB_df <- filter(TB_df, exp_budget <= 8)
+
+TB_df %>% 
+  ggplot(aes(exp_budget, mort_inc_100k)) +
+  geom_point(aes(colour = factor(year))) +
+  labs(x="Expenditure to budget required (USD)", y="TB Mortality to incidence per 100k",colour = "year")
+```
+
+now lets plot the other two columns to check if it has any abnormalities
+
+```{r}
+TB_df %>% 
+  ggplot(aes(hiv_inc_100k, mort_inc_100k)) +
+  geom_point()
+```
+```{r}
+TB_df <- filter(TB_df, mort_inc_100k <= 2)
+```
+
+
+```{r}
+TB_df %>% 
+  ggplot(aes(hiv_inc_100k, mort_inc_100k)) +
+  geom_point(aes(colour = factor(year))) +
+  labs(x="HIV positive cases to the number of instances", y="TB Mortality to incidence per 100k",colour = "year")
+```
+
+
+
+```{r}
+TB_df %>% 
+  ggplot(aes(hiv_inc_100k, exp_budget)) +
+  geom_point()
+```
+
+
+```{r}
+TB_df %>% 
+  ggplot(aes(hiv_inc_100k, exp_budget)) +
+  geom_point(aes(colour = factor(year))) +
+  labs(x="HIV positive cases to the number of instances", y="Expenditure to budget ratio",colour = "year")
+```
+
+
+```{r}
+res <- cor.test(TB_df$exp_budget, TB_df$mort_inc_100k, 
+                    method = "pearson")
+res
+```
+
+
+```{r}
+ggplot(TB_df, aes(x=exp_budget, y=mort_inc_100k)) + 
+  geom_point()+
+  geom_smooth(method=lm)
+```
+testing the partial correlation of the first two columns controlling for the third
+
+```{r}
+pcor.test(TB_df$exp_budget, TB_df$mort_inc_100k,TB_df$hiv_inc_100k,method="pearson")
+```
+
+```{r}
+res <- cor.test(TB_df$hiv_inc_100k, TB_df$mort_inc_100k, 
+                    method = "pearson")
+res
+```
+
+
+```{r}
+ggplot(TB_df, aes(x=hiv_inc_100k, y=mort_inc_100k)) + 
+  geom_point()+
+  geom_smooth(method=lm)
+```
+
+#studying partial correlations!
+
+```{r}
+install.packages('ppcor')
+```
+
+
+```{r}
+TB_df <- filter(TB_df, exp_budget <= 8)
+TB_df %>% 
+  ggplot(aes(exp_budget, mort_inc_100k)) +
+  geom_point(aes(colour = factor(year))) +
+  labs(x="Expenditure to budget required (USD)", y="TB Mortality to incidence per 100k",colour = "year")
+```
+Visually, we see no correlation between those two variables. Most values are between 0 to 1 expenditure/budget regardless of their mortality rate. We can also observe that no distinct difference is among 2018 and 2018 values.So, we need to take a look to each variable more in detail.
+```{r}
+TB_df %>% 
+  ggplot(aes(factor(year), mort_inc_100k)) +
+  geom_boxplot() +
+  labs(x="year", y="TB Mortality to incidence per 100k")
+```
+Mortality rate have not changed during 2018 and 2019. More than 75% of the countries have mortality rate below 0.2 in both years.
+```{r}
+TB_df %>% 
+  ggplot(aes(factor(year), exp_budget)) +
+  geom_boxplot() +
+  labs(x="year", y="Expenditure to budget required (USD)")
+```
+Almost 75% of data are below 1 in both years which means 75% of countries expend less than their required budget and their budget was sufficient.
+
+```{r}
+TB_df %>% 
+  ggplot(aes(exp_budget)) +
+  geom_histogram() +
+  facet_grid(rows = vars(year)) +
+  labs(x="Expenditure to budget required (USD)")
+```
+```{r}
+TB_df %>% 
+  ggplot(aes(mort_inc_100k)) +
+  geom_histogram() +
+  facet_grid(rows = vars(year)) +
+  labs(x="TB Mortality to incidence per 100k")
+```
+## Conclusion
+Before starting the analysis, we had an assumption in our mind: the more a country spend money on TB issues (relative to their required budget), the less TB mortality rate will be. However, by analyzing the data, we came to conclusion that the mentioned assumption is not correct (at least in 2018 and 2019).
+Many factors are not considered in this assignment. For instance, several countries did not have data. For further analysis, other factors such as funding and laboratories can be considered.
+
+
+

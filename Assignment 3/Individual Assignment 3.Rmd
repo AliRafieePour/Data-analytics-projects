@@ -1,0 +1,163 @@
+---
+title: "Individual Assignment 3"
+author: "Ali Rafieepouralavialavijeh"
+date: "3/13/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(knitr)    # For knitting document and include_graphics function
+library(gridExtra) # For including grids of plots
+library(psych)
+library(ggiraph)
+library(ggiraphExtra)
+library(car)
+library(GGally) #for ggpairs
+library(lubridate)
+
+```
+
+Loading the data
+
+```{r}
+data <- read.csv("C:\\Users\\urafi\\OneDrive\\Desktop\\csv3.csv")
+data_annual <- read.csv("C:\\Users\\urafi\\OneDrive\\Desktop\\csv2.csv")
+```
+
+checking the data within the dataset!
+
+```{r}
+head(data)
+head(data_annual)
+```
+
+edit year
+
+
+```{r}
+ggplot(data, aes(y=complaints, x=month.year)) +
+  geom_point() +
+  labs(x="Consectutive months from 2011 untill 2021",
+         y="Number of complaints recived per month");
+
+```
+
+
+```{r}
+ggplot(data_annual, aes(y=X0, x=Week.Year)) +
+  geom_point() +
+  labs(x="Consectutive months from 2011 untill 2021",
+         y="Number of complaints recived per month");
+
+```
+
+
+
+```{r}
+summary(lm(complaints ~ month.year, data=data))
+summary(lm(X0 ~ Week.Year, data=data_annual))
+
+```
+
+Dropping the outlier
+
+```{r}
+reg <- slice(data, -c(112))
+reg.model = lm(complaints ~ month.year, data=reg)
+summary(reg.model)
+
+ggplot(reg, aes(y=complaints, x=month.year)) +
+  geom_point() +
+  labs(x="Consectutive months from 2011 untill 2021",
+         y="Number of complaints recived per month");
+
+```
+
+All three predictor variables have an influence on influence on albums sales at the 5% level of significance: adverts (t(196)=12.261, p < 2e-16), airplay (t(196)=12.123, p < 2e-16), and attract (t(196)=4.548, p < 9.49e-06). The intercept is not significantly different from 0 (t(196) = -1.534, p=0.127). R^2 is 0.6647, and adjusted R^2 is 0.6595. Coefficients and 95% confidence intervals are listed below.
+
+
+```{r}
+confint(reg.model)
+```
+
+
+```{r}
+ggPredict(reg.model, se=TRUE)
+reg
+```
+
+```{r}
+durbinWatsonTest(reg.model)
+plot(reg.model)
+```
+
+
+
+```{r}
+reg$fitted<- reg.model$fitted
+reg$res <- reg.model$residuals
+reg$standardized.residuals <- rstandard(reg.model)
+
+
+possible.outliers <- subset(reg, standardized.residuals < -1.96 | standardized.residuals > 1.96)
+
+possible.outliers
+
+```
+We found 5 residuals are above or below 1.96 standard deviations. As this represents 4% of the observations, expected if the residuals are normal (5% of data is expected to be outside of 2 standard deviations), we do not consider any of these observations as outliers and continued with all 115 observations included in the model.
+
+
+
+```{r}
+reg$cooks <- cooks.distance(reg.model)
+plot(sort(reg$cooks, decreasing=TRUE))
+```
+
+To investigate influential cases, we calculated Cook’s Distance on the developed model. Cook’s distance was a maximum of 0.0707659, far below the chosen cutoff value of 1. We thus conclude that there are no influential cases
+
+
+```{r}
+shapiro.test(reg.model$residuals)
+```
+
+
+
+
+
+
+
+
+VIF multico
+
+```{r}
+vif(reg.model)
+```
+
+predicting
+
+```{r}
+newValues=tibble(month.year=c(103, 104, 105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129))
+predict.lm(reg.model, newValues)
+```
+
+
+
+deleting certain points
+
+```{r}
+
+data <- read.csv("C:\\Users\\urafi\\OneDrive\\Desktop\\csv3.csv")
+ggplot(data, aes(y=complaints, x=month.year)) +
+  geom_point() +
+  labs(x="Consectutive months from 2011 untill 2021",
+         y="Number of complaints recived per month");
+
+sth = lm(complaints ~ month.year, data=data)
+ggPredict(sth, se=TRUE)
+
+
+```
